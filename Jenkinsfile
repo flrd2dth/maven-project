@@ -1,8 +1,19 @@
 pipeline {
     agent any
+
+    parameters {
+        string(name: 'tomcat_dev', defaultValue: 'apache-tomcat-8.5.28-staging', description: 'Staging Server')
+        string(name: 'tomcat_prod', defaultValue: 'apache-tomcat-8.5.28-prod', description: 'Production Server')
+    }
+
+    triggers {
+        pollSCM('* * * * *')
+    }
+
     tools {
         maven 'Default'
     }
+
     stages {
         stage('Build') {
             steps {
@@ -16,27 +27,18 @@ pipeline {
             }
         }
 
-        stage ('Deploy to Staging') {
-            steps {
-                build job: 'deploy-to-staging'
-            }
-        }
-
-        stage ('Deploy to Production') {
-            steps{
-                timeout(time:5, unit:'DAYS') {
-                    input message:'Approve PRODUCTION Deployment?'
+        stage ('Deployments') {
+            parallel {
+                stage ('Deploy to Staging') {
+                    steps {
+                        sh "cp **/target/*.war /Users/strobins/Documents/${params.tomcat_dev}/webapps"
+                    }
                 }
 
-                build job: 'deploy-to-Prod'
-            }
-            post {
-                success {
-                    echo 'Code deployed to Production.'
-                }
-
-                failure {
-                    echo ' Deployment failed.'
+                stage ("Deploy to Production") {
+                    steps {
+                        sh "cp **/target/*.war /Users/strobins/Documents/${params.tomcat_prod}/webapps"
+                    }
                 }
             }
         }
